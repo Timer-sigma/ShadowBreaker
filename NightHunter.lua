@@ -1,592 +1,454 @@
--- NightHunter v8.8 - Охотник за 99 Ночами
--- Полный контроль над лесом и его обитателями
-
-getgenv().NightHunter = {
-    Config = {
-        AutoFarm = true,
-        SafeMode = false,
-        AntiBan = true,
-        Webhook = "" -- Для уведомлений
-    }
-}
+-- NightHunter v9.0 - Упрощенная РАБОЧАЯ версия для 99 Nights
+-- Прямой инжект без зависимостей
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
-local HttpService = game:GetService("HttpService")
 local Lighting = game:GetService("Lighting")
-local TeleportService = game:GetService("TeleportService")
+local TweenService = game:GetService("TweenService")
 
 local Player = Players.LocalPlayer
 local Mouse = Player:GetMouse()
 
--- Ядро безопасности
-local function GhostMode()
-    if not getgenv().GhostLoaded then
-        getgenv().GhostLoaded = true
-        -- Маскировка под легитные скрипты
-        local fakeScript = Instance.new("LocalScript")
-        fakeScript.Name = "PlayerModules"
-        fakeScript.Parent = Player.PlayerScripts
+-- Простой GUI библиотека
+local function CreateSimpleGUI()
+    local ScreenGui = Instance.new("ScreenGui")
+    local MainFrame = Instance.new("Frame")
+    local ScrollFrame = Instance.new("ScrollingFrame")
+    local UIListLayout = Instance.new("UIListLayout")
+    local Title = Instance.new("TextLabel")
+    local CloseButton = Instance.new("TextButton")
+    
+    ScreenGui.Name = "NightHunterGUI"
+    ScreenGui.Parent = game.CoreGui
+    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    
+    MainFrame.Name = "MainFrame"
+    MainFrame.Parent = ScreenGui
+    MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    MainFrame.BorderSizePixel = 0
+    MainFrame.Position = UDim2.new(0.1, 0, 0.1, 0)
+    MainFrame.Size = UDim2.new(0, 300, 0, 400)
+    MainFrame.Active = true
+    MainFrame.Draggable = true
+    
+    Title.Name = "Title"
+    Title.Parent = MainFrame
+    Title.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    Title.BorderSizePixel = 0
+    Title.Size = UDim2.new(1, 0, 0, 30)
+    Title.Font = Enum.Font.GothamBold
+    Title.Text = "🌙 NightHunter v9.0"
+    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title.TextSize = 14
+    
+    CloseButton.Name = "CloseButton"
+    CloseButton.Parent = Title
+    CloseButton.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+    CloseButton.BorderSizePixel = 0
+    CloseButton.Position = UDim2.new(0.9, 0, 0.1, 0)
+    CloseButton.Size = UDim2.new(0, 20, 0, 20)
+    CloseButton.Font = Enum.Font.GothamBold
+    CloseButton.Text = "X"
+    CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    CloseButton.TextSize = 12
+    CloseButton.MouseButton1Click:Connect(function()
+        ScreenGui:Destroy()
+    end)
+    
+    ScrollFrame.Name = "ScrollFrame"
+    ScrollFrame.Parent = MainFrame
+    ScrollFrame.Position = UDim2.new(0, 0, 0, 35)
+    ScrollFrame.Size = UDim2.new(1, 0, 1, -35)
+    ScrollFrame.BorderSizePixel = 0
+    ScrollFrame.ScrollBarThickness = 5
+    ScrollFrame.BackgroundTransparency = 1
+    
+    UIListLayout.Parent = ScrollFrame
+    UIListLayout.Padding = UDim.new(0, 5)
+    
+    local elements = {}
+    
+    function elements:CreateButton(config)
+        local Button = Instance.new("TextButton")
+        Button.Name = config.Name
+        Button.Parent = ScrollFrame
+        Button.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+        Button.BorderSizePixel = 0
+        Button.Size = UDim2.new(0.9, 0, 0, 35)
+        Button.Position = UDim2.new(0.05, 0, 0, 0)
+        Button.Font = Enum.Font.Gotham
+        Button.Text = config.Name
+        Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+        Button.TextSize = 12
+        Button.MouseButton1Click: config.Callback
+        
+        return Button
     end
+    
+    function elements:CreateToggle(config)
+        local ToggleFrame = Instance.new("Frame")
+        local ToggleButton = Instance.new("TextButton")
+        local Status = Instance.new("TextLabel")
+        
+        ToggleFrame.Name = config.Name
+        ToggleFrame.Parent = ScrollFrame
+        ToggleFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+        ToggleFrame.BorderSizePixel = 0
+        ToggleFrame.Size = UDim2.new(0.9, 0, 0, 35)
+        ToggleFrame.Position = UDim2.new(0.05, 0, 0, 0)
+        
+        ToggleButton.Name = "ToggleButton"
+        ToggleButton.Parent = ToggleFrame
+        ToggleButton.BackgroundColor3 = Color3.fromRGB(80, 80, 100)
+        ToggleButton.BorderSizePixel = 0
+        ToggleButton.Position = UDim2.new(0.7, 0, 0.2, 0)
+        ToggleButton.Size = UDim2.new(0, 50, 0, 20)
+        ToggleButton.Font = Enum.Font.Gotham
+        ToggleButton.Text = "OFF"
+        ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        ToggleButton.TextSize = 10
+        
+        Status.Name = "Status"
+        Status.Parent = ToggleFrame
+        Status.BackgroundTransparency = 1
+        Status.Position = UDim2.new(0.05, 0, 0, 0)
+        Status.Size = UDim2.new(0.6, 0, 1, 0)
+        Status.Font = Enum.Font.Gotham
+        Status.Text = config.Name
+        Status.TextColor3 = Color3.fromRGB(255, 255, 255)
+        Status.TextSize = 12
+        Status.TextXAlignment = Enum.TextXAlignment.Left
+        
+        local state = config.CurrentValue or false
+        
+        local function updateToggle()
+            if state then
+                ToggleButton.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+                ToggleButton.Text = "ON"
+            else
+                ToggleButton.BackgroundColor3 = Color3.fromRGB(80, 80, 100)
+                ToggleButton.Text = "OFF"
+            end
+            config.Callback(state)
+        end
+        
+        ToggleButton.MouseButton1Click:Connect(function()
+            state = not state
+            updateToggle()
+        end)
+        
+        updateToggle()
+        
+        return {
+            Set = function(value)
+                state = value
+                updateToggle()
+            end
+        }
+    end
+    
+    return elements
 end
 
--- Авто-фарм монстров
-local MonsterFarm = {
-    Enabled = false,
-    Connection = nil,
-    Blacklist = {"Tree", "Rock", "House"} -- Игнорируемые объекты
-}
+-- Функции скрипта
+local MonsterFarm = false
+local ResourceFarm = false
+local ESPEnabled = false
+local GodModeEnabled = false
+local NightVisionEnabled = false
+local BringAllEnabled = false
 
-function MonsterFarm:Start()
-    if self.Enabled then return end
-    self.Enabled = true
-    
-    self.Connection = RunService.Heartbeat:Connect(function()
-        if not Player.Character then return end
-        
-        local humanoidRootPart = Player.Character:FindFirstChild("HumanoidRootPart")
-        local humanoid = Player.Character:FindFirstChild("Humanoid")
-        if not humanoidRootPart or not humanoid then return end
-        
-        -- Поиск монстров и NPC
-        for _, npc in pairs(Workspace:GetChildren()) do
-            if npc:FindFirstChild("Humanoid") and npc.Humanoid.Health > 0 then
-                local shouldAttack = true
-                
-                -- Проверка черного списка
-                for _, blackName in pairs(self.Blacklist) do
-                    if npc.Name:find(blackName) then
-                        shouldAttack = false
-                        break
-                    end
-                end
-                
-                -- Атака монстров
-                if shouldAttack and npc.Name ~= Player.Name then
-                    local distance = (humanoidRootPart.Position - npc.HumanoidRootPart.Position).Magnitude
+local ESPHighlights = {}
+
+-- Авто-фарм монстров
+local function ToggleMonsterFarm(value)
+    MonsterFarm = value
+    if value then
+        spawn(function()
+            while MonsterFarm and wait(0.1) do
+                if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+                    local root = Player.Character.HumanoidRootPart
                     
-                    if distance < 50 then
-                        -- Телепорт к монстру
-                        humanoidRootPart.CFrame = npc.HumanoidRootPart.CFrame + Vector3.new(0, 0, -3)
-                        
-                        -- Авто-атака
-                        local tool = Player.Character:FindFirstChildOfClass("Tool")
-                        if tool and tool:FindFirstChild("Handle") then
-                            tool.Handle.CFrame = npc.HumanoidRootPart.CFrame
-                            -- Имитация удара
-                            for i = 1, 3 do
-                                firetouchinterest(tool.Handle, npc.HumanoidRootPart, 0)
-                                task.wait(0.1)
-                                firetouchinterest(tool.Handle, npc.HumanoidRootPart, 1)
+                    for _, npc in pairs(Workspace:GetChildren()) do
+                        if npc:FindFirstChild("Humanoid") and npc.Humanoid.Health > 0 then
+                            if npc ~= Player.Character then
+                                local npcRoot = npc:FindFirstChild("HumanoidRootPart")
+                                if npcRoot then
+                                    local distance = (root.Position - npcRoot.Position).Magnitude
+                                    if distance < 50 then
+                                        -- Атака монстра
+                                        root.CFrame = npcRoot.CFrame + Vector3.new(0, 0, -2)
+                                        
+                                        -- Имитация атаки
+                                        local tool = Player.Character:FindFirstChildOfClass("Tool")
+                                        if tool then
+                                            for i = 1, 2 do
+                                                firetouchinterest(tool.Handle, npcRoot, 0)
+                                                wait(0.1)
+                                                firetouchinterest(tool.Handle, npcRoot, 1)
+                                            end
+                                        end
+                                    end
+                                end
                             end
                         end
                     end
                 end
             end
-        end
-    end)
-end
-
-function MonsterFarm:Stop()
-    if self.Connection then
-        self.Connection:Disconnect()
-        self.Connection = nil
-    end
-    self.Enabled = false
-end
-
--- Авто-сбор ресурсов
-local ResourceFarm = {
-    Enabled = false,
-    Connection = nil,
-    Resources = {"Wood", "Stone", "Ore", "Berry", "Mushroom", "Herb"}
-}
-
-function ResourceFarm:Start()
-    if self.Enabled then return end
-    self.Enabled = true
-    
-    self.Connection = RunService.Heartbeat:Connect(function()
-        if not Player.Character then return end
-        
-        local humanoidRootPart = Player.Character:FindFirstChild("HumanoidRootPart")
-        if not humanoidRootPart then return end
-        
-        -- Поиск ресурсов
-        for _, obj in pairs(Workspace:GetDescendants()) do
-            if obj:IsA("Part") or obj:IsA("MeshPart") then
-                for _, resourceName in pairs(self.Resources) do
-                    if obj.Name:lower():find(resourceName:lower()) then
-                        local distance = (humanoidRootPart.Position - obj.Position).Magnitude
-                        if distance < 30 then
-                            -- Телепорт ресурса к игроку
-                            obj.CFrame = humanoidRootPart.CFrame + Vector3.new(0, 3, 0)
-                            
-                            -- Сбор
-                            firetouchinterest(humanoidRootPart, obj, 0)
-                            task.wait(0.05)
-                            firetouchinterest(humanoidRootPart, obj, 1)
-                        end
-                    end
-                end
-            end
-        end
-    end)
-end
-
-function ResourceFarm:Stop()
-    if self.Connection then
-        self.Connection:Disconnect()
-        self.Connection = nil
-    end
-    self.Enabled = false
-end
-
--- ESP для целей
-local HunterESP = {
-    Enabled = false,
-    Highlights = {},
-    Colors = {
-        Monster = Color3.fromRGB(255, 50, 50),
-        Resource = Color3.fromRGB(50, 255, 50),
-        Player = Color3.fromRGB(50, 100, 255),
-        Loot = Color3.fromRGB(255, 255, 50)
-    }
-}
-
-function HunterESP:Start()
-    if self.Enabled then return end
-    self.Enabled = true
-    
-    local function addESP(obj, espType)
-        if not obj or self.Highlights[obj] then return end
-        
-        local highlight = Instance.new("Highlight")
-        highlight.Adornee = obj
-        highlight.FillColor = self.Colors[espType] or Color3.fromRGB(255, 255, 255)
-        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-        highlight.FillTransparency = 0.4
-        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-        highlight.Parent = obj
-        
-        self.Highlights[obj] = {Highlight = highlight, Type = espType}
-    end
-    
-    -- Поиск всех целей
-    for _, obj in pairs(Workspace:GetDescendants()) do
-        -- Монстры и NPC
-        if obj:FindFirstChild("Humanoid") and obj.Humanoid.Health > 0 then
-            if obj ~= Player.Character then
-                addESP(obj, "Monster")
-            end
-        end
-        
-        -- Ресурсы
-        if obj:IsA("Part") or obj:IsA("MeshPart") then
-            local objName = obj.Name:lower()
-            if objName:find("wood") or objName:find("stone") or objName:find("ore") then
-                addESP(obj, "Resource")
-            elseif objName:find("berry") or objName:find("mushroom") or objName:find("herb") then
-                addESP(obj, "Resource")
-            elseif objName:find("chest") or objName:find("loot") or objName:find("reward") then
-                addESP(obj, "Loot")
-            end
-        end
-        
-        -- Игроки
-        if obj:IsA("Model") and Players:GetPlayerFromCharacter(obj) then
-            if obj ~= Player.Character then
-                addESP(obj, "Player")
-            end
-        end
-    end
-    
-    -- Мониторинг новых объектов
-    Workspace.DescendantAdded:Connect(function(obj)
-        task.wait(0.5) -- Даем время на появление
-        
-        if obj:FindFirstChild("Humanoid") and obj.Humanoid.Health > 0 then
-            if obj ~= Player.Character then
-                addESP(obj, "Monster")
-            end
-        end
-        
-        if obj:IsA("Part") or obj:IsA("MeshPart") then
-            local objName = obj.Name:lower()
-            if objName:find("wood") or objName:find("stone") or objName:find("ore") then
-                addESP(obj, "Resource")
-            elseif objName:find("berry") or objName:find("mushroom") or objName:find("herb") then
-                addESP(obj, "Resource")
-            elseif objName:find("chest") or objName:find("loot") then
-                addESP(obj, "Loot")
-            end
-        end
-    end)
-end
-
-function HunterESP:Stop()
-    for obj, data in pairs(self.Highlights) do
-        if data.Highlight then
-            data.Highlight:Destroy()
-        end
-    end
-    self.Highlights = {}
-    self.Enabled = false
-end
-
--- Авто-крафт и улучшения
-local AutoCraft = {
-    Enabled = false,
-    Connection = nil,
-    Priorities = {"Sword", "Axe", "Pickaxe", "Armor"}
-}
-
-function AutoCraft:Start()
-    if self.Enabled then return end
-    self.Enabled = true
-    
-    self.Connection = RunService.Heartbeat:Connect(function()
-        -- Здесь будет логика авто-крафта
-        -- Зависит от конкретной механики игры
-    end)
-end
-
--- Ночное зрение
-local NightVision = {
-    Enabled = false,
-    OriginalBrightness = nil
-}
-
-function NightVision:Start()
-    if self.Enabled then return end
-    self.Enabled = true
-    
-    self.OriginalBrightness = Lighting.Brightness
-    Lighting.Brightness = 2
-    Lighting.ClockTime = 12 -- Полдень (освещение)
-    
-    -- Добавляем источник света к игроку
-    if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
-        local light = Instance.new("PointLight")
-        light.Brightness = 5
-        light.Range = 50
-        light.Parent = Player.Character.HumanoidRootPart
-    end
-end
-
-function NightVision:Stop()
-    if self.OriginalBrightness then
-        Lighting.Brightness = self.OriginalBrightness
-    end
-    self.Enabled = false
-    
-    -- Удаляем свет
-    if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
-        local light = Player.Character.HumanoidRootPart:FindFirstChild("PointLight")
-        if light then
-            light:Destroy()
-        end
-    end
-end
-
--- Bring All Monsters (Темная магия)
-local BringAll = {
-    Enabled = false,
-    Connection = nil
-}
-
-function BringAll:Start()
-    if self.Enabled then return end
-    self.Enabled = true
-    
-    self.Connection = RunService.Heartbeat:Connect(function()
-        if not Player.Character then return end
-        
-        local humanoidRootPart = Player.Character:FindFirstChild("HumanoidRootPart")
-        if not humanoidRootPart then return end
-        
-        -- Притягиваем всех монстров к игроку
-        for _, npc in pairs(Workspace:GetChildren()) do
-            if npc:FindFirstChild("Humanoid") and npc.Humanoid.Health > 0 then
-                if npc.Name ~= Player.Name and not MonsterFarm.Blacklist[npc.Name] then
-                    local npcRoot = npc:FindFirstChild("HumanoidRootPart")
-                    if npcRoot then
-                        -- Плавное притягивание
-                        local distance = (humanoidRootPart.Position - npcRoot.Position).Magnitude
-                        if distance < 100 then
-                            npcRoot.CFrame = humanoidRootPart.CFrame + Vector3.new(
-                                math.random(-10, 10),
-                                0,
-                                math.random(-10, 10)
-                            )
-                        end
-                    end
-                end
-            end
-        end
-    end)
-end
-
-function BringAll:Stop()
-    if self.Connection then
-        self.Connection:Disconnect()
-        self.Connection = nil
-    end
-    self.Enabled = false
-end
-
--- Инстант-килл
-local InstantKill = {
-    Enabled = false
-}
-
-function InstantKill:Activate()
-    self.Enabled = true
-    
-    -- Модификация урона оружия
-    for _, tool in pairs(Player.Backpack:GetChildren()) do
-        if tool:IsA("Tool") then
-            local handle = tool:FindFirstChild("Handle")
-            if handle then
-                -- Увеличение урона
-                local bodyForce = Instance.new("BodyForce")
-                bodyForce.Force = Vector3.new(0, 196.2, 0) * 10
-                bodyForce.Parent = handle
-            end
-        end
-    end
-end
-
--- Защита от смерти
-local GodMode = {
-    Enabled = false,
-    OriginalHealth = nil
-}
-
-function GodMode:Start()
-    if self.Enabled then return end
-    self.Enabled = true
-    
-    if Player.Character and Player.Character:FindFirstChild("Humanoid") then
-        self.OriginalHealth = Player.Character.Humanoid.MaxHealth
-        Player.Character.Humanoid.MaxHealth = math.huge
-        Player.Character.Humanoid.Health = math.huge
-        
-        -- Защита от урона
-        Player.Character.Humanoid.Touched:Connect(function()
-            Player.Character.Humanoid.Health = math.huge
         end)
     end
 end
 
-function GodMode:Stop()
-    if self.OriginalHealth and Player.Character and Player.Character:FindFirstChild("Humanoid") then
-        Player.Character.Humanoid.MaxHealth = self.OriginalHealth
-        Player.Character.Humanoid.Health = self.OriginalHealth
+-- Авто-сбор ресурсов
+local function ToggleResourceFarm(value)
+    ResourceFarm = value
+    if value then
+        spawn(function()
+            while ResourceFarm and wait(0.2) do
+                if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+                    local root = Player.Character.HumanoidRootPart
+                    
+                    for _, obj in pairs(Workspace:GetDescendants()) do
+                        if obj:IsA("Part") or obj:IsA("MeshPart") then
+                            local name = obj.Name:lower()
+                            if name:find("wood") or name:find("stone") or name:find("ore") or 
+                               name:find("berry") or name:find("mushroom") then
+                                local distance = (root.Position - obj.Position).Magnitude
+                                if distance < 30 then
+                                    obj.CFrame = root.CFrame + Vector3.new(0, 3, 0)
+                                    firetouchinterest(root, obj, 0)
+                                    wait(0.05)
+                                    firetouchinterest(root, obj, 1)
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end)
     end
-    self.Enabled = false
 end
 
--- GUI Интерфейс
-local function CreateHunterGUI()
-    local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-    
-    local Window = Rayfield:CreateWindow({
-        Name = "🌙 NightHunter v8.8 - 99 Nights",
-        LoadingTitle = "Becoming the Forest Lord...",
-        LoadingSubtitle = "Initializing hunting protocols",
-        Theme = "Dark"
-    })
-
-    -- Вкладка охоты
-    local HuntTab = Window:CreateTab("Hunter")
-    
-    HuntTab:CreateToggle({
-        Name = "🎯 Auto Monster Farm",
-        CurrentValue = false,
-        Callback = function(Value)
-            if Value then
-                MonsterFarm:Start()
-            else
-                MonsterFarm:Stop()
+-- ESP
+local function ToggleESP(value)
+    ESPEnabled = value
+    if value then
+        -- Создаем ESP для существующих объектов
+        for _, npc in pairs(Workspace:GetChildren()) do
+            if npc:FindFirstChild("Humanoid") and npc.Humanoid.Health > 0 then
+                if npc ~= Player.Character then
+                    local highlight = Instance.new("Highlight")
+                    highlight.Adornee = npc
+                    highlight.FillColor = Color3.fromRGB(255, 50, 50)
+                    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                    highlight.FillTransparency = 0.5
+                    highlight.Parent = npc
+                    ESPHighlights[npc] = highlight
+                end
             end
         end
-    })
-
-    HuntTab:CreateToggle({
-        Name = "🌀 Bring All Monsters", 
-        CurrentValue = false,
-        Callback = function(Value)
-            if Value then
-                BringAll:Start()
-            else
-                BringAll:Stop()
+        
+        -- Мониторинг новых объектов
+        Workspace.ChildAdded:Connect(function(child)
+            wait(1)
+            if child:FindFirstChild("Humanoid") and child.Humanoid.Health > 0 then
+                if child ~= Player.Character then
+                    local highlight = Instance.new("Highlight")
+                    highlight.Adornee = child
+                    highlight.FillColor = Color3.fromRGB(255, 50, 50)
+                    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                    highlight.FillTransparency = 0.5
+                    highlight.Parent = child
+                    ESPHighlights[child] = highlight
+                end
+            end
+        end)
+    else
+        -- Удаляем ESP
+        for npc, highlight in pairs(ESPHighlights) do
+            if highlight then
+                highlight:Destroy()
             end
         end
-    })
-
-    HuntTab:CreateToggle({
-        Name = "⚡ Instant Kill",
-        CurrentValue = false,
-        Callback = function(Value)
-            if Value then
-                InstantKill:Activate()
-            end
-        end
-    })
-
-    -- Вкладка ресурсов
-    local ResourceTab = Window:CreateTab("Resources")
-    
-    ResourceTab:CreateToggle({
-        Name = "🪵 Auto Resource Farm",
-        CurrentValue = false,
-        Callback = function(Value)
-            if Value then
-                ResourceFarm:Start()
-            else
-                ResourceFarm:Stop()
-            end
-        end
-    })
-
-    ResourceTab:CreateToggle({
-        Name = "⚒️ Auto Craft", 
-        CurrentValue = false,
-        Callback = function(Value)
-            if Value then
-                AutoCraft:Start()
-            else
-                AutoCraft.Enabled = false
-            end
-        end
-    })
-
-    -- Вкладка визуала
-    local VisualTab = Window:CreateTab("Vision")
-    
-    VisualTab:CreateToggle({
-        Name = "👁️ Hunter ESP",
-        CurrentValue = false,
-        Callback = function(Value)
-            if Value then
-                HunterESP:Start()
-            else
-                HunterESP:Stop()
-            end
-        end
-    })
-
-    VisualTab:CreateToggle({
-        Name = "💡 Night Vision", 
-        CurrentValue = false,
-        Callback = function(Value)
-            if Value then
-                NightVision:Start()
-            else
-                NightVision:Stop()
-            end
-        end
-    })
-
-    -- Вкладка защиты
-    local DefenseTab = Window:CreateTab("Defense")
-    
-    DefenseTab:CreateToggle({
-        Name = "🛡️ God Mode",
-        CurrentValue = false,
-        Callback = function(Value)
-            if Value then
-                GodMode:Start()
-            else
-                GodMode:Stop()
-            end
-        end
-    })
-
-    DefenseTab:CreateToggle({
-        Name = "👻 Ghost Mode", 
-        CurrentValue = false,
-        Callback = function(Value)
-            if Value then
-                GhostMode()
-                Rayfield:Notify({
-                    Title = "NightHunter",
-                    Content = "Ghost Mode Activated",
-                    Duration = 3
-                })
-            end
-        end
-    })
-
-    -- Вкладка телепортации
-    local TeleportTab = Window:CreateTab("Teleport")
-    
-    local Locations = {
-        "Spawn Point",
-        "Forest Center", 
-        "Cave Entrance",
-        "Lake",
-        "Mountain Top",
-        "Secret Base"
-    }
-    
-    for _, location in pairs(Locations) do
-        TeleportTab:CreateButton({
-            Name = "📍 " .. location,
-            Callback = function()
-                -- Телепорт по координатам (нужно настроить под карту)
-                Rayfield:Notify({
-                    Title = "NightHunter Teleport",
-                    Content = "Teleporting to " .. location,
-                    Duration = 3,
-                })
-            end,
-        })
+        ESPHighlights = {}
     end
-
-    -- Информация
-    local InfoTab = Window:CreateTab("Info")
-    
-    InfoTab:CreateLabel("NightHunter v8.8 - Active")
-    InfoTab:CreateParagraph({
-        Title = "Forest Domination",
-        Content = "You are now the master of 99 Nights. Hunt wisely."
-    })
-    
-    InfoTab:CreateButton({
-        Name = "🌀 Destroy GUI",
-        Callback = function()
-            Rayfield:Destroy()
-        end
-    })
 end
 
--- Инициализация
-GhostMode()
+-- God Mode
+local function ToggleGodMode(value)
+    GodModeEnabled = value
+    if value and Player.Character then
+        local humanoid = Player.Character:FindFirstChild("Humanoid")
+        if humanoid then
+            humanoid.MaxHealth = math.huge
+            humanoid.Health = math.huge
+        end
+    end
+end
 
-task.spawn(function()
-    task.wait(2)
-    CreateHunterGUI()
+-- Night Vision
+local function ToggleNightVision(value)
+    NightVisionEnabled = value
+    if value then
+        Lighting.Brightness = 2
+        Lighting.ClockTime = 12
+        
+        if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+            local light = Instance.new("PointLight")
+            light.Brightness = 3
+            light.Range = 100
+            light.Parent = Player.Character.HumanoidRootPart
+        end
+    else
+        Lighting.Brightness = 1
+        if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+            local light = Player.Character.HumanoidRootPart:FindFirstChild("PointLight")
+            if light then
+                light:Destroy()
+            end
+        end
+    end
+end
+
+-- Bring All Monsters
+local function ToggleBringAll(value)
+    BringAllEnabled = value
+    if value then
+        spawn(function()
+            while BringAllEnabled and wait(0.5) do
+                if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+                    local root = Player.Character.HumanoidRootPart
+                    
+                    for _, npc in pairs(Workspace:GetChildren()) do
+                        if npc:FindFirstChild("Humanoid") and npc.Humanoid.Health > 0 then
+                            if npc ~= Player.Character then
+                                local npcRoot = npc:FindFirstChild("HumanoidRootPart")
+                                if npcRoot then
+                                    npcRoot.CFrame = root.CFrame + Vector3.new(
+                                        math.random(-8, 8),
+                                        0,
+                                        math.random(-8, 8)
+                                    )
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end)
+    end
+end
+
+-- Создаем GUI
+local GUI = CreateSimpleGUI()
+
+GUI:CreateButton({
+    Name = "🎯 Включить авто-фарм монстров",
+    Callback = function()
+        ToggleMonsterFarm(true)
+    end
+})
+
+GUI:CreateButton({
+    Name = "❌ Выключить авто-фарм монстров", 
+    Callback = function()
+        ToggleMonsterFarm(false)
+    end
+})
+
+GUI:CreateToggle({
+    Name = "🪵 Авто-сбор ресурсов",
+    CurrentValue = false,
+    Callback = ToggleResourceFarm
+})
+
+GUI:CreateToggle({
+    Name = "👁️ ESP подсветка",
+    CurrentValue = false, 
+    Callback = ToggleESP
+})
+
+GUI:CreateToggle({
+    Name = "🛡️ God Mode",
+    CurrentValue = false,
+    Callback = ToggleGodMode
+})
+
+GUI:CreateToggle({
+    Name = "💡 Night Vision",
+    CurrentValue = false,
+    Callback = ToggleNightVision
+})
+
+GUI:CreateToggle({
+    Name = "🌀 Bring All Monsters",
+    CurrentValue = false,
+    Callback = ToggleBringAll
+})
+
+GUI:CreateButton({
+    Name = "⚡ Инстант-килл (тест)",
+    Callback = function()
+        -- Увеличиваем урон оружия
+        for _, tool in pairs(Player.Backpack:GetChildren()) do
+            if tool:IsA("Tool") then
+                local handle = tool:FindFirstChild("Handle")
+                if handle then
+                    local bodyForce = Instance.new("BodyForce")
+                    bodyForce.Force = Vector3.new(0, 196.2, 0) * 5
+                    bodyForce.Parent = handle
+                end
+            end
+        end
+    end
+})
+
+GUI:CreateButton({
+    Name = "📊 Информация об игре",
+    Callback = function()
+        print("=== NightHunter Info ===")
+        print("Игроков в игре: " .. #Players:GetPlayers())
+        print("Объектов в workspace: " .. #Workspace:GetChildren())
+        
+        local monsterCount = 0
+        for _, npc in pairs(Workspace:GetChildren()) do
+            if npc:FindFirstChild("Humanoid") and npc.Humanoid.Health > 0 then
+                if npc ~= Player.Character then
+                    monsterCount = monsterCount + 1
+                end
+            end
+        end
+        print("Монстров найдено: " .. monsterCount)
+    end
+})
+
+-- Уведомление о загрузке
+wait(1)
+if Player and Player:FindFirstChild("PlayerGui") then
+    local notification = Instance.new("ScreenGui")
+    local frame = Instance.new("Frame")
+    local label = Instance.new("TextLabel")
     
-    -- Авто-старт полезных функций
-    task.wait(3)
-    HunterESP:Start()
-    NightVision:Start()
-end)
+    notification.Parent = Player.PlayerGui
+    notification.Name = "LoadNotify"
+    
+    frame.Parent = notification
+    frame.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    frame.BorderSizePixel = 0
+    frame.Position = UDim2.new(0.35, 0, 0.45, 0)
+    frame.Size = UDim2.new(0, 200, 0, 60)
+    
+    label.Parent = frame
+    label.BackgroundTransparency = 1
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.Text = "🌙 NightHunter v9.0\nУспешно загружен!"
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.TextSize = 14
+    label.Font = Enum.Font.GothamBold
+    
+    wait(3)
+    notification:Destroy()
+end
 
--- Глобальный API
-getgenv().NightHunterAPI = {
-    MonsterFarm = MonsterFarm,
-    ResourceFarm = ResourceFarm,
-    HunterESP = HunterESP,
-    BringAll = BringAll,
-    GodMode = GodMode,
-    NightVision = NightVision
-}
-
-print("🌙 NightHunter v8.8 loaded - Dominate the Forest!")
-print("📜 Use NightHunterAPI for direct control")
-
-return getgenv().NightHunterAPI
+print("🌙 NightHunter v9.0 - Готов к охоте!")
