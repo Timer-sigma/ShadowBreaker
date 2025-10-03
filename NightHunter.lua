@@ -1,58 +1,401 @@
--- MEGA NIGHTS DOMINATOR v6.0
--- Полный клон VW + улучшенные функции
+-- NIGHTS DOMINATOR ULTIMATE v7.0
+-- Полностью автономный рабочий скрипт
 
-loadstring(game:HttpGet("https://raw.githubusercontent.com/VapeVoidware/VW-Add/main/nightsintheforest.lua", true))()
-
--- ДОБАВЛЯЕМ НАШИ УЛУЧШЕННЫЕ ФУНКЦИИ
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
+local CoreGui = game:GetService("CoreGui")
+local HttpService = game:GetService("HttpService")
 
 local Player = Players.LocalPlayer
 local Mouse = Player:GetMouse()
 
--- УЛУЧШЕННЫЙ БРИНГ ПРЕДМЕТОВ
-local EnhancedBring = {
-    Enabled = false,
-    Connection = nil,
-    BringDistance = 150,
-    BringSpeed = 0.3
+-- Удаляем старые GUI чтобы не было конфликтов
+for _, gui in pairs(CoreGui:GetChildren()) do
+    if gui.Name == "NightsDominator" or gui.Name == "Vape" or gui.Name:find("Dominator") then
+        gui:Destroy()
+    end
+end
+
+-- ОСНОВНЫЕ ПЕРЕМЕННЫЕ
+local Dominator = {
+    Enabled = {
+        BringAll = false,
+        InstantKill = false,
+        AutoFarm = false,
+        Fly = false,
+        ESP = false,
+        GodMode = false,
+        Speed = false,
+        Noclip = false
+    },
+    Connections = {},
+    Highlights = {}
 }
 
-function EnhancedBring:Start()
-    if self.Enabled then return end
-    self.Enabled = true
+-- ПРОСТОЙ И НАДЕЖНЫЙ GUI
+local function CreateDominatorGUI()
+    -- Удаляем старые GUI
+    for _, gui in pairs(CoreGui:GetChildren()) do
+        if gui.Name == "NightsDominator" then
+            gui:Destroy()
+        end
+    end
+
+    local DominatorGUI = Instance.new("ScreenGui")
+    local MainFrame = Instance.new("Frame")
+    local TopBar = Instance.new("Frame")
+    local Title = Instance.new("TextLabel")
+    local CloseBtn = Instance.new("TextButton")
+    local TabButtons = Instance.new("Frame")
+    local ContentFrame = Instance.new("ScrollingFrame")
+    local UIListLayout = Instance.new("UIListLayout")
+
+    DominatorGUI.Name = "NightsDominator"
+    DominatorGUI.Parent = CoreGui
+    DominatorGUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    DominatorGUI.ResetOnSpawn = false
+
+    MainFrame.Name = "MainFrame"
+    MainFrame.Parent = DominatorGUI
+    MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+    MainFrame.BorderSizePixel = 1
+    MainFrame.BorderColor3 = Color3.fromRGB(50, 50, 60)
+    MainFrame.Position = UDim2.new(0.3, 0, 0.25, 0)
+    MainFrame.Size = UDim2.new(0, 450, 0, 500)
+    MainFrame.Active = true
+    MainFrame.Draggable = true
+
+    TopBar.Name = "TopBar"
+    TopBar.Parent = MainFrame
+    TopBar.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+    TopBar.BorderSizePixel = 0
+    TopBar.Size = UDim2.new(1, 0, 0, 40)
+
+    Title.Name = "Title"
+    Title.Parent = TopBar
+    Title.BackgroundTransparency = 1
+    Title.Position = UDim2.new(0.05, 0, 0, 0)
+    Title.Size = UDim2.new(0.8, 0, 1, 0)
+    Title.Font = Enum.Font.GothamBold
+    Title.Text = "🌙 NIGHTS DOMINATOR v7.0"
+    Title.TextColor3 = Color3.fromRGB(0, 200, 255)
+    Title.TextSize = 16
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+
+    CloseBtn.Name = "CloseBtn"
+    CloseBtn.Parent = TopBar
+    CloseBtn.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+    CloseBtn.BorderSizePixel = 0
+    CloseBtn.Position = UDim2.new(0.92, 0, 0.2, 0)
+    CloseBtn.Size = UDim2.new(0, 25, 0, 25)
+    CloseBtn.Font = Enum.Font.GothamBold
+    CloseBtn.Text = "X"
+    CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    CloseBtn.TextSize = 14
+    CloseBtn.MouseButton1Click:Connect(function()
+        DominatorGUI:Destroy()
+    end)
+
+    TabButtons.Name = "TabButtons"
+    TabButtons.Parent = MainFrame
+    TabButtons.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+    TabButtons.BorderSizePixel = 0
+    TabButtons.Position = UDim2.new(0, 0, 0, 45)
+    TabButtons.Size = UDim2.new(1, 0, 0, 40)
+
+    ContentFrame.Name = "ContentFrame"
+    ContentFrame.Parent = MainFrame
+    ContentFrame.BackgroundTransparency = 1
+    ContentFrame.Position = UDim2.new(0, 0, 0, 90)
+    ContentFrame.Size = UDim2.new(1, 0, 1, -90)
+    ContentFrame.ScrollBarThickness = 6
+    ContentFrame.ScrollBarImageColor3 = Color3.fromRGB(0, 200, 255)
+
+    UIListLayout.Parent = ContentFrame
+    UIListLayout.Padding = UDim.new(0, 8)
+    UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+    -- Создаем вкладки
+    local Tabs = {"MAIN", "COMBAT", "MOVEMENT", "VISUALS"}
+    local CurrentTab = "MAIN"
+
+    for i, tabName in pairs(Tabs) do
+        local TabBtn = Instance.new("TextButton")
+        TabBtn.Name = tabName
+        TabBtn.Parent = TabButtons
+        TabBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+        TabBtn.BorderSizePixel = 0
+        TabBtn.Size = UDim2.new(0.23, 0, 0.7, 0)
+        TabBtn.Position = UDim2.new(0.02 + (i-1)*0.24, 0, 0.15, 0)
+        TabBtn.Font = Enum.Font.Gotham
+        TabBtn.Text = tabName
+        TabBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+        TabBtn.TextSize = 12
+        
+        TabBtn.MouseButton1Click:Connect(function()
+            CurrentTab = tabName
+            UpdateContent(ContentFrame, CurrentTab)
+        end)
+    end
+
+    -- Функции создания элементов
+    local function CreateButton(parent, config)
+        local Button = Instance.new("TextButton")
+        Button.Name = config.Name
+        Button.Parent = parent
+        Button.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+        Button.BorderSizePixel = 0
+        Button.Size = UDim2.new(0.9, 0, 0, 40)
+        Button.Font = Enum.Font.Gotham
+        Button.Text = config.Name
+        Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+        Button.TextSize = 13
+        
+        Button.MouseButton1Click:Connect(config.Callback)
+        
+        return Button
+    end
+
+    local function CreateToggle(parent, config)
+        local ToggleFrame = Instance.new("Frame")
+        local ToggleLabel = Instance.new("TextLabel")
+        local ToggleBtn = Instance.new("TextButton")
+        
+        ToggleFrame.Name = config.Name
+        ToggleFrame.Parent = parent
+        ToggleFrame.BackgroundTransparency = 1
+        ToggleFrame.Size = UDim2.new(0.9, 0, 0, 35)
+        
+        ToggleLabel.Name = "Label"
+        ToggleLabel.Parent = ToggleFrame
+        ToggleLabel.BackgroundTransparency = 1
+        ToggleLabel.Size = UDim2.new(0.7, 0, 1, 0)
+        ToggleLabel.Font = Enum.Font.Gotham
+        ToggleLabel.Text = config.Name
+        ToggleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        ToggleLabel.TextSize = 13
+        ToggleLabel.TextXAlignment = Enum.TextXAlignment.Left
+        
+        ToggleBtn.Name = "Toggle"
+        ToggleBtn.Parent = ToggleFrame
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+        ToggleBtn.BorderSizePixel = 0
+        ToggleBtn.Position = UDim2.new(0.8, 0, 0.2, 0)
+        ToggleBtn.Size = UDim2.new(0, 50, 0, 20)
+        ToggleBtn.Font = Enum.Font.Gotham
+        ToggleBtn.Text = "OFF"
+        ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        ToggleBtn.TextSize = 10
+        
+        local state = config.CurrentValue or false
+        
+        local function UpdateToggle()
+            if state then
+                ToggleBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 0)
+                ToggleBtn.Text = "ON"
+            else
+                ToggleBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+                ToggleBtn.Text = "OFF"
+            end
+            config.Callback(state)
+        end
+        
+        ToggleBtn.MouseButton1Click:Connect(function()
+            state = not state
+            UpdateToggle()
+        end)
+        
+        UpdateToggle()
+        
+        return {
+            Set = function(value)
+                state = value
+                UpdateToggle()
+            end
+        }
+    end
+
+    -- Функция обновления контента
+    function UpdateContent(contentFrame, tab)
+        -- Очищаем контент
+        for _, child in pairs(contentFrame:GetChildren()) do
+            if child:IsA("Frame") or child:IsA("TextButton") then
+                child:Destroy()
+            end
+        end
+
+        if tab == "MAIN" then
+            CreateToggle(contentFrame, {
+                Name = "🌀 BRING ALL ITEMS",
+                CurrentValue = Dominator.Enabled.BringAll,
+                Callback = function(value)
+                    Dominator.Enabled.BringAll = value
+                    if value then
+                        StartBringAll()
+                    else
+                        StopBringAll()
+                    end
+                end
+            })
+            
+            CreateToggle(contentFrame, {
+                Name = "💀 INSTANT KILL",
+                CurrentValue = Dominator.Enabled.InstantKill,
+                Callback = function(value)
+                    Dominator.Enabled.InstantKill = value
+                    if value then
+                        StartInstantKill()
+                    else
+                        StopInstantKill()
+                    end
+                end
+            })
+            
+            CreateToggle(contentFrame, {
+                Name = "🎯 AUTO FARM",
+                CurrentValue = Dominator.Enabled.AutoFarm,
+                Callback = function(value)
+                    Dominator.Enabled.AutoFarm = value
+                    if value then
+                        StartAutoFarm()
+                    else
+                        StopAutoFarm()
+                    end
+                end
+            })
+            
+            CreateButton(contentFrame, {
+                Name = "🛡️ ENABLE GOD MODE",
+                Callback = function()
+                    EnableGodMode()
+                end
+            })
+
+        elseif tab == "COMBAT" then
+            CreateButton(contentFrame, {
+                Name = "⚡ KILL ALL NEARBY",
+                Callback = function()
+                    KillAllNearby()
+                end
+            })
+            
+            CreateButton(contentFrame, {
+                Name = "🎯 TP TO NEAREST ENEMY",
+                Callback = function()
+                    TeleportToNearestEnemy()
+                end
+            })
+            
+            CreateToggle(contentFrame, {
+                Name = "👁️ ESP MONSTERS",
+                CurrentValue = Dominator.Enabled.ESP,
+                Callback = function(value)
+                    Dominator.Enabled.ESP = value
+                    if value then
+                        StartESP()
+                    else
+                        StopESP()
+                    end
+                end
+            })
+
+        elseif tab == "MOVEMENT" then
+            CreateToggle(contentFrame, {
+                Name = "🪽 FLY MODE",
+                CurrentValue = Dominator.Enabled.Fly,
+                Callback = function(value)
+                    Dominator.Enabled.Fly = value
+                    if value then
+                        StartFly()
+                    else
+                        StopFly()
+                    end
+                end
+            })
+            
+            CreateToggle(contentFrame, {
+                Name = "👻 NO CLIP",
+                CurrentValue = Dominator.Enabled.Noclip,
+                Callback = function(value)
+                    Dominator.Enabled.Noclip = value
+                    if value then
+                        StartNoclip()
+                    else
+                        StopNoclip()
+                    end
+                end
+            })
+            
+            CreateButton(contentFrame, {
+                Name = "⚡ SPEED 50",
+                Callback = function()
+                    SetSpeed(50)
+                end
+            })
+            
+            CreateButton(contentFrame, {
+                Name = "⚡ SPEED 100", 
+                Callback = function()
+                    SetSpeed(100)
+                end
+            })
+
+        elseif tab == "VISUALS" then
+            CreateButton(contentFrame, {
+                Name = "💡 FULL BRIGHT",
+                Callback = function()
+                    EnableFullBright()
+                end
+            })
+            
+            CreateButton(contentFrame, {
+                Name = "📍 TP TO MOUSE",
+                Callback = function()
+                    TeleportToMouse()
+                end
+            })
+            
+            CreateButton(contentFrame, {
+                Name = "📊 SERVER INFO",
+                Callback = function()
+                    PrintServerInfo()
+                end
+            })
+        end
+    end
+
+    -- Инициализируем первую вкладку
+    UpdateContent(ContentFrame, "MAIN")
     
-    self.Connection = RunService.Heartbeat:Connect(function()
-        if not self.Enabled then return end
+    return DominatorGUI
+end
+
+-- ОСНОВНЫЕ ФУНКЦИИ
+function StartBringAll()
+    Dominator.Connections.BringAll = RunService.Heartbeat:Connect(function()
+        if not Dominator.Enabled.BringAll then return end
         
         local root = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
         if not root then return end
         
-        -- Притягиваем ВСЕ предметы которые можно собрать
         for _, obj in pairs(Workspace:GetDescendants()) do
-            if obj:IsA("Part") or obj:IsA("MeshPart") or obj:IsA("UnionOperation") then
-                -- Проверяем что это собираемый предмет (не земля, не дерево и т.д.)
-                if IsCollectibleItem(obj) then
+            if obj:IsA("Part") or obj:IsA("MeshPart") then
+                local name = obj.Name:lower()
+                if name:find("wood") or name:find("stone") or name:find("ore") or 
+                   name:find("berry") or name:find("coin") or name:find("money") or
+                   name:find("mushroom") or name:find("food") or name:find("resource") then
+                   
                     local distance = (root.Position - obj.Position).Magnitude
-                    if distance < self.BringDistance then
-                        -- Плавное притягивание
-                        local tweenInfo = TweenInfo.new(
-                            self.BringSpeed,
-                            Enum.EasingStyle.Quad,
-                            Enum.EasingDirection.Out
-                        )
-                        local targetPosition = root.Position + Vector3.new(
+                    if distance < 100 then
+                        obj.CFrame = root.CFrame + Vector3.new(
                             math.random(-5, 5),
                             3,
                             math.random(-5, 5)
                         )
-                        local tween = TweenService:Create(obj, tweenInfo, {
-                            CFrame = CFrame.new(targetPosition)
-                        })
-                        tween:Play()
                     end
                 end
             end
@@ -60,94 +403,29 @@ function EnhancedBring:Start()
     end)
 end
 
-function EnhancedBring:Stop()
-    if self.Connection then
-        self.Connection:Disconnect()
-        self.Connection = nil
+function StopBringAll()
+    if Dominator.Connections.BringAll then
+        Dominator.Connections.BringAll:Disconnect()
+        Dominator.Connections.BringAll = nil
     end
-    self.Enabled = false
 end
 
--- Умная проверка собираемых предметов
-function IsCollectibleItem(obj)
-    local name = obj.Name:lower()
-    local blacklist = {
-        "base", "ground", "terrain", "water", "wall", "floor", 
-        "tree", "rock", "boulder", "house", "building", "spawn"
-    }
-    
-    -- Черный список
-    for _, blackword in pairs(blacklist) do
-        if name:find(blackword) then
-            return false
-        end
-    end
-    
-    -- Белый список собираемых предметов
-    local collectibleKeywords = {
-        "wood", "log", "stick", "stone", "rock", "ore", "metal",
-        "iron", "gold", "coin", "money", "cash", "berry", "mushroom",
-        "apple", "food", "meat", "fish", "resource", "item", "loot",
-        "reward", "chest", "box", "crate", "pickup", "collectible"
-    }
-    
-    for _, keyword in pairs(collectibleKeywords) do
-        if name:find(keyword) then
-            return true
-        end
-    end
-    
-    -- Если предмет маленький и не прикреплен - вероятно собираемый
-    if obj.Size.Magnitude < 10 and not obj.Anchored then
-        return true
-    end
-    
-    return false
-end
-
--- УЛУЧШЕННАЯ КИЛКА (INSTANT KILL)
-local InstantKill = {
-    Enabled = false,
-    Connection = nil,
-    KillDistance = 50
-}
-
-function InstantKill:Start()
-    if self.Enabled then return end
-    self.Enabled = true
-    
-    self.Connection = RunService.Heartbeat:Connect(function()
-        if not self.Enabled then return end
+function StartInstantKill()
+    Dominator.Connections.InstantKill = RunService.Heartbeat:Connect(function()
+        if not Dominator.Enabled.InstantKill then return end
         
         local root = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
         if not root then return end
         
-        -- Ищем монстров и врагов
         for _, npc in pairs(Workspace:GetChildren()) do
-            if IsEnemy(npc) then
-                local npcRoot = npc:FindFirstChild("HumanoidRootPart")
-                local humanoid = npc:FindFirstChild("Humanoid")
-                
-                if npcRoot and humanoid and humanoid.Health > 0 then
-                    local distance = (root.Position - npcRoot.Position).Magnitude
-                    
-                    if distance < self.KillDistance then
-                        -- Мгновенное убийство
-                        humanoid.Health = 0
-                        
-                        -- Альтернативные методы убийства
-                        pcall(function()
-                            humanoid:TakeDamage(math.huge)
-                        end)
-                        
-                        pcall(function()
-                            -- Взрыв для гарантии
-                            local explosion = Instance.new("Explosion")
-                            explosion.Position = npcRoot.Position
-                            explosion.BlastPressure = 0
-                            explosion.BlastRadius = 5
-                            explosion.Parent = Workspace
-                        end)
+            if npc:FindFirstChild("Humanoid") and npc.Humanoid.Health > 0 then
+                if npc ~= Player.Character and not Players:GetPlayerFromCharacter(npc) then
+                    local npcRoot = npc:FindFirstChild("HumanoidRootPart")
+                    if npcRoot then
+                        local distance = (root.Position - npcRoot.Position).Magnitude
+                        if distance < 50 then
+                            npc.Humanoid.Health = 0
+                        end
                     end
                 end
             end
@@ -155,97 +433,49 @@ function InstantKill:Start()
     end)
 end
 
-function InstantKill:Stop()
-    if self.Connection then
-        self.Connection:Disconnect()
-        self.Connection = nil
+function StopInstantKill()
+    if Dominator.Connections.InstantKill then
+        Dominator.Connections.InstantKill:Disconnect()
+        Dominator.Connections.InstantKill = nil
     end
-    self.Enabled = false
 end
 
--- Умное определение врагов
-function IsEnemy(npc)
-    if not npc:FindFirstChild("Humanoid") then return false end
-    if npc:FindFirstChild("Humanoid").Health <= 0 then return false end
-    
-    -- Игроки - не враги
-    if Players:GetPlayerFromCharacter(npc) then return false end
-    
-    local npcName = npc.Name:lower()
-    
-    -- Черный список дружественных NPC
-    local friendlyNPCs = {
-        "player", "friend", "villager", "trader", "merchant", 
-        "npc", "civilian", "ally", "companion"
-    }
-    
-    for _, friendly in pairs(friendlyNPCs) do
-        if npcName:find(friendly) then
-            return false
-        end
-    end
-    
-    -- Белый список врагов
-    local enemyKeywords = {
-        "monster", "enemy", "zombie", "skeleton", "creature", "beast",
-        "wolf", "bear", "spider", "goblin", "orc", "demon", "ghost",
-        "boss", "mob", "animal", "predator", "hostile"
-    }
-    
-    for _, enemy in pairs(enemyKeywords) do
-        if npcName:find(enemy) then
-            return true
-        end
-    end
-    
-    -- Если не игрок и не друг - считаем врагом
-    return true
-end
-
--- АВТО-ФАРМ РЕСУРСОВ
-local AutoFarm = {
-    Enabled = false,
-    Connection = nil,
-    FarmDistance = 100
-}
-
-function AutoFarm:Start()
-    if self.Enabled then return end
-    self.Enabled = true
-    
-    self.Connection = RunService.Heartbeat:Connect(function()
-        if not self.Enabled then return end
+function StartAutoFarm()
+    Dominator.Connections.AutoFarm = RunService.Heartbeat:Connect(function()
+        if not Dominator.Enabled.AutoFarm then return end
         
         local root = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
         if not root then return end
         
-        -- 1. Собираем ресурсы
+        -- Авто-сбор предметов
         for _, obj in pairs(Workspace:GetDescendants()) do
-            if IsCollectibleItem(obj) then
-                local distance = (root.Position - obj.Position).Magnitude
-                if distance < 20 then -- Близкие предметы собираем сразу
-                    obj.CFrame = root.CFrame + Vector3.new(0, 3, 0)
-                    firetouchinterest(root, obj, 0)
-                    wait(0.05)
-                    firetouchinterest(root, obj, 1)
+            if obj:IsA("Part") or obj:IsA("MeshPart") then
+                local name = obj.Name:lower()
+                if name:find("wood") or name:find("stone") or name:find("ore") or 
+                   name:find("berry") or name:find("coin") then
+                   
+                    local distance = (root.Position - obj.Position).Magnitude
+                    if distance < 20 then
+                        obj.CFrame = root.CFrame + Vector3.new(0, 3, 0)
+                        firetouchinterest(root, obj, 0)
+                        wait(0.05)
+                        firetouchinterest(root, obj, 1)
+                    end
                 end
             end
         end
         
-        -- 2. Убиваем врагов
+        -- Авто-убийство врагов
         for _, npc in pairs(Workspace:GetChildren()) do
-            if IsEnemy(npc) then
-                local npcRoot = npc:FindFirstChild("HumanoidRootPart")
-                if npcRoot then
-                    local distance = (root.Position - npcRoot.Position).Magnitude
-                    if distance < self.FarmDistance then
-                        -- Телепортируемся к врагу
-                        root.CFrame = npcRoot.CFrame + Vector3.new(0, 0, -3)
-                        
-                        -- Атакуем
-                        local tool = Player.Character:FindFirstChildOfClass("Tool")
-                        if tool then
-                            for i = 1, 3 do
+            if npc:FindFirstChild("Humanoid") and npc.Humanoid.Health > 0 then
+                if npc ~= Player.Character and not Players:GetPlayerFromCharacter(npc) then
+                    local npcRoot = npc:FindFirstChild("HumanoidRootPart")
+                    if npcRoot then
+                        local distance = (root.Position - npcRoot.Position).Magnitude
+                        if distance < 30 then
+                            root.CFrame = npcRoot.CFrame + Vector3.new(0, 0, -3)
+                            local tool = Player.Character:FindFirstChildOfClass("Tool")
+                            if tool then
                                 firetouchinterest(tool.Handle, npcRoot, 0)
                                 wait(0.1)
                                 firetouchinterest(tool.Handle, npcRoot, 1)
@@ -258,43 +488,26 @@ function AutoFarm:Start()
     end)
 end
 
-function AutoFarm:Stop()
-    if self.Connection then
-        self.Connection:Disconnect()
-        self.Connection = nil
+function StopAutoFarm()
+    if Dominator.Connections.AutoFarm then
+        Dominator.Connections.AutoFarm:Disconnect()
+        Dominator.Connections.AutoFarm = nil
     end
-    self.Enabled = false
 end
 
--- МЕГА ФЛАЙ
-local MegaFly = {
-    Enabled = false,
-    Connection = nil,
-    FlySpeed = 100
-}
-
-function MegaFly:Start()
-    if self.Enabled then return end
-    self.Enabled = true
-    
-    local root = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
-    if not root then return end
-    
-    local humanoid = Player.Character:FindFirstChild("Humanoid")
-    if humanoid then
-        humanoid.PlatformStand = true
-    end
-    
-    self.Connection = RunService.Heartbeat:Connect(function()
-        if not self.Enabled or not Player.Character then return end
+function StartFly()
+    Dominator.Connections.Fly = RunService.Heartbeat:Connect(function()
+        if not Dominator.Enabled.Fly or not Player.Character then return end
         
         local root = Player.Character:FindFirstChild("HumanoidRootPart")
-        if not root then return end
+        local humanoid = Player.Character:FindFirstChild("Humanoid")
+        if not root or not humanoid then return end
+        
+        humanoid.PlatformStand = true
         
         local camera = Workspace.CurrentCamera
         local moveDirection = Vector3.new(0, 0, 0)
         
-        -- Управление WASD
         if UserInputService:IsKeyDown(Enum.KeyCode.W) then
             moveDirection = moveDirection + camera.CFrame.LookVector
         end
@@ -313,22 +526,19 @@ function MegaFly:Start()
         if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
             moveDirection = moveDirection + Vector3.new(0, -1, 0)
         end
-        if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
-            moveDirection = moveDirection * 2 -- Ускорение
-        end
         
         if moveDirection.Magnitude > 0 then
-            root.Velocity = moveDirection.Unit * self.FlySpeed
+            root.Velocity = moveDirection.Unit * 100
         else
             root.Velocity = Vector3.new(0, 0, 0)
         end
     end)
 end
 
-function MegaFly:Stop()
-    if self.Connection then
-        self.Connection:Disconnect()
-        self.Connection = nil
+function StopFly()
+    if Dominator.Connections.Fly then
+        Dominator.Connections.Fly:Disconnect()
+        Dominator.Connections.Fly = nil
     end
     
     if Player.Character then
@@ -337,251 +547,191 @@ function MegaFly:Stop()
             humanoid.PlatformStand = false
         end
     end
-    self.Enabled = false
 end
 
--- ДОБАВЛЯЕМ НАШИ ФУНКЦИИ В ИНТЕРФЕЙС VW
-wait(2) -- Ждем загрузки основного GUI
-
--- Находим GUI VW и добавляем наши кнопки
-local function AddOurFeaturesToVW()
-    -- Ищем основной GUI VW
-    for _, gui in pairs(game.CoreGui:GetChildren()) do
-        if gui.Name == "Vape" or gui.Name:find("VW") or gui.Name:find("Voidware") then
-            
-            -- Добавляем наши функции в существующие вкладки или создаем новую
-            
-            -- Ищем кнопку для добавления наших функций
-            wait(3)
-            
-            -- Создаем уведомление что наши функции загружены
-            local notify = Instance.new("ScreenGui")
-            local frame = Instance.new("Frame")
-            local label = Instance.new("TextLabel")
-            
-            notify.Name = "MegaDominatorNotify"
-            notify.Parent = game.CoreGui
-            
-            frame.Parent = notify
-            frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-            frame.BorderSizePixel = 0
-            frame.Position = UDim2.new(0.3, 0, 0.4, 0)
-            frame.Size = UDim2.new(0, 400, 0, 80)
-            
-            label.Parent = frame
-            label.BackgroundTransparency = 1
-            label.Size = UDim2.new(1, 0, 1, 0)
-            label.Text = "🔥 MEGA FEATURES LOADED!\nEnhanced Bring + Instant Kill + Auto Farm"
-            label.TextColor3 = Color3.fromRGB(0, 255, 255)
-            label.TextSize = 16
-            label.Font = Enum.Font.GothamBold
-            
-            -- Авто-удаление уведомления
-            spawn(function()
-                wait(4)
-                notify:Destroy()
-            end)
-            
-            break
-        end
-    end
-end
-
--- АЛЬТЕРНАТИВНЫЙ GUI ЕСЛИ VW НЕ НАЙДЕН
-local function CreateAlternativeGUI()
-    local AltGUI = Instance.new("ScreenGui")
-    local Main = Instance.new("Frame")
-    local Top = Instance.new("Frame")
-    local Title = Instance.new("TextLabel")
-    local Close = Instance.new("TextButton")
-    
-    AltGUI.Name = "MegaDominatorGUI"
-    AltGUI.Parent = game.CoreGui
-    
-    Main.Name = "Main"
-    Main.Parent = AltGUI
-    Main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-    Main.BorderSizePixel = 1
-    Main.BorderColor3 = Color3.fromRGB(60, 60, 60)
-    Main.Position = UDim2.new(0.7, 0, 0.3, 0)
-    Main.Size = UDim2.new(0, 300, 0, 400)
-    Main.Active = true
-    Main.Draggable = true
-    
-    Top.Name = "Top"
-    Top.Parent = Main
-    Top.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-    Top.BorderSizePixel = 0
-    Top.Size = UDim2.new(1, 0, 0, 40)
-    
-    Title.Name = "Title"
-    Title.Parent = Top
-    Title.BackgroundTransparency = 1
-    Title.Size = UDim2.new(0.8, 0, 1, 0)
-    Title.Font = Enum.Font.GothamBold
-    Title.Text = "🔥 MEGA FEATURES"
-    Title.TextColor3 = Color3.fromRGB(0, 255, 255)
-    Title.TextSize = 14
-    Title.TextXAlignment = Enum.TextXAlignment.Left
-    Title.Position = UDim2.new(0.05, 0, 0, 0)
-    
-    Close.Name = "Close"
-    Close.Parent = Top
-    Close.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
-    Close.BorderSizePixel = 0
-    Close.Position = UDim2.new(0.9, 0, 0.2, 0)
-    Close.Size = UDim2.new(0, 20, 0, 20)
-    Close.Font = Enum.Font.GothamBold
-    Close.Text = "X"
-    Close.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Close.TextSize = 12
-    Close.MouseButton1Click:Connect(function()
-        AltGUI:Destroy()
-    end)
-    
-    local Content = Instance.new("ScrollingFrame")
-    Content.Parent = Main
-    Content.Position = UDim2.new(0, 0, 0, 45)
-    Content.Size = UDim2.new(1, 0, 1, -45)
-    Content.BackgroundTransparency = 1
-    Content.ScrollBarThickness = 5
-    
-    local UIList = Instance.new("UIListLayout")
-    UIList.Parent = Content
-    UIList.Padding = UDim.new(0, 5)
-    
-    local function CreateButton(name, callback)
-        local Button = Instance.new("TextButton")
-        Button.Parent = Content
-        Button.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-        Button.BorderSizePixel = 0
-        Button.Size = UDim2.new(0.9, 0, 0, 35)
-        Button.Position = UDim2.new(0.05, 0, 0, 0)
-        Button.Font = Enum.Font.Gotham
-        Button.Text = name
-        Button.TextColor3 = Color3.fromRGB(255, 255, 255)
-        Button.TextSize = 12
-        Button.MouseButton1Click:Connect(callback)
-        return Button
-    end
-    
-    local function CreateToggle(name, callback)
-        local ToggleFrame = Instance.new("Frame")
-        local ToggleLabel = Instance.new("TextLabel")
-        local ToggleBtn = Instance.new("TextButton")
+function StartNoclip()
+    Dominator.Connections.Noclip = RunService.Stepped:Connect(function()
+        if not Dominator.Enabled.Noclip or not Player.Character then return end
         
-        ToggleFrame.Parent = Content
-        ToggleFrame.BackgroundTransparency = 1
-        ToggleFrame.Size = UDim2.new(0.9, 0, 0, 30)
-        
-        ToggleLabel.Parent = ToggleFrame
-        ToggleLabel.BackgroundTransparency = 1
-        ToggleLabel.Size = UDim2.new(0.7, 0, 1, 0)
-        ToggleLabel.Font = Enum.Font.Gotham
-        ToggleLabel.Text = name
-        ToggleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-        ToggleLabel.TextSize = 12
-        ToggleLabel.TextXAlignment = Enum.TextXAlignment.Left
-        
-        ToggleBtn.Parent = ToggleFrame
-        ToggleBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-        ToggleBtn.BorderSizePixel = 0
-        ToggleBtn.Position = UDim2.new(0.8, 0, 0.1, 0)
-        ToggleBtn.Size = UDim2.new(0, 50, 0, 20)
-        ToggleBtn.Font = Enum.Font.Gotham
-        ToggleBtn.Text = "OFF"
-        ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        ToggleBtn.TextSize = 10
-        
-        local state = false
-        
-        local function UpdateToggle()
-            if state then
-                ToggleBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
-                ToggleBtn.Text = "ON"
-            else
-                ToggleBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-                ToggleBtn.Text = "OFF"
+        for _, part in pairs(Player.Character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
             end
-            callback(state)
         end
-        
-        ToggleBtn.MouseButton1Click:Connect(function()
-            state = not state
-            UpdateToggle()
-        end)
-        
-        UpdateToggle()
+    end)
+end
+
+function StopNoclip()
+    if Dominator.Connections.Noclip then
+        Dominator.Connections.Noclip:Disconnect()
+        Dominator.Connections.Noclip = nil
     end
-    
-    -- Добавляем наши функции
-    CreateToggle("🌀 Enhanced Bring All", function(v)
-        if v then
-            EnhancedBring:Start()
-        else
-            EnhancedBring:Stop()
+end
+
+function StartESP()
+    for _, npc in pairs(Workspace:GetChildren()) do
+        if npc:FindFirstChild("Humanoid") and npc.Humanoid.Health > 0 then
+            if npc ~= Player.Character and not Players:GetPlayerFromCharacter(npc) then
+                local highlight = Instance.new("Highlight")
+                highlight.Adornee = npc
+                highlight.FillColor = Color3.fromRGB(255, 0, 0)
+                highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                highlight.FillTransparency = 0.5
+                highlight.Parent = npc
+                Dominator.Highlights[npc] = highlight
+            end
         end
-    end)
-    
-    CreateToggle("💀 Instant Kill All", function(v)
-        if v then
-            InstantKill:Start()
-        else
-            InstantKill:Stop()
-        end
-    end)
-    
-    CreateToggle("🎯 Auto Farm Everything", function(v)
-        if v then
-            AutoFarm:Start()
-        else
-            AutoFarm:Stop()
-        end
-    end)
-    
-    CreateToggle("🪽 Mega Fly", function(v)
-        if v then
-            MegaFly:Start()
-        else
-            MegaFly:Stop()
-        end
-    end)
-    
-    CreateButton("⚡ Boost Speed", function()
-        local humanoid = Player.Character and Player.Character:FindFirstChild("Humanoid")
-        if humanoid then
-            humanoid.WalkSpeed = 50
-        end
-    end)
-    
-    CreateButton("🛡️ God Mode", function()
-        local humanoid = Player.Character and Player.Character:FindFirstChild("Humanoid")
+    end
+end
+
+function StopESP()
+    for _, highlight in pairs(Dominator.Highlights) do
+        highlight:Destroy()
+    end
+    Dominator.Highlights = {}
+end
+
+-- ДОПОЛНИТЕЛЬНЫЕ ФУНКЦИИ
+function EnableGodMode()
+    if Player.Character then
+        local humanoid = Player.Character:FindFirstChild("Humanoid")
         if humanoid then
             humanoid.MaxHealth = math.huge
             humanoid.Health = math.huge
         end
-    end)
-    
-    return AltGUI
+    end
 end
 
--- ЗАПУСКАЕМ ВСЕ
+function SetSpeed(value)
+    if Player.Character then
+        local humanoid = Player.Character:FindFirstChild("Humanoid")
+        if humanoid then
+            humanoid.WalkSpeed = value
+        end
+    end
+end
+
+function KillAllNearby()
+    local root = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    
+    for _, npc in pairs(Workspace:GetChildren()) do
+        if npc:FindFirstChild("Humanoid") and npc.Humanoid.Health > 0 then
+            if npc ~= Player.Character and not Players:GetPlayerFromCharacter(npc) then
+                local npcRoot = npc:FindFirstChild("HumanoidRootPart")
+                if npcRoot then
+                    local distance = (root.Position - npcRoot.Position).Magnitude
+                    if distance < 100 then
+                        npc.Humanoid.Health = 0
+                    end
+                end
+            end
+        end
+    end
+end
+
+function TeleportToNearestEnemy()
+    local root = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    
+    local nearest = nil
+    local nearestDist = math.huge
+    
+    for _, npc in pairs(Workspace:GetChildren()) do
+        if npc:FindFirstChild("Humanoid") and npc.Humanoid.Health > 0 then
+            if npc ~= Player.Character and not Players:GetPlayerFromCharacter(npc) then
+                local npcRoot = npc:FindFirstChild("HumanoidRootPart")
+                if npcRoot then
+                    local distance = (root.Position - npcRoot.Position).Magnitude
+                    if distance < nearestDist then
+                        nearestDist = distance
+                        nearest = npcRoot
+                    end
+                end
+            end
+        end
+    end
+    
+    if nearest then
+        root.CFrame = nearest.CFrame + Vector3.new(0, 0, -5)
+    end
+end
+
+function TeleportToMouse()
+    if Player.Character and Mouse.Target then
+        local root = Player.Character:FindFirstChild("HumanoidRootPart")
+        if root then
+            root.CFrame = CFrame.new(Mouse.Hit.Position + Vector3.new(0, 5, 0))
+        end
+    end
+end
+
+function EnableFullBright()
+    Lighting.Brightness = 2
+    Lighting.ClockTime = 14
+    Lighting.Ambient = Color3.new(1, 1, 1)
+end
+
+function PrintServerInfo()
+    local playerCount = #Players:GetPlayers()
+    local monsterCount = 0
+    
+    for _, npc in pairs(Workspace:GetChildren()) do
+        if npc:FindFirstChild("Humanoid") and npc.Humanoid.Health > 0 then
+            if npc ~= Player.Character and not Players:GetPlayerFromCharacter(npc) then
+                monsterCount = monsterCount + 1
+            end
+        end
+    end
+    
+    print("=== SERVER INFO ===")
+    print("Players: " .. playerCount)
+    print("Monsters: " .. monsterCount)
+    print("Time: " .. Lighting.ClockTime)
+end
+
+-- ЗАГРУЗКА СКРИПТА
 wait(1)
 
--- Пытаемся добавить к VW, если не получится - создаем свой GUI
+-- Создаем GUI
+local GUI = CreateDominatorGUI()
+
+-- Уведомление о загрузке
+local notify = Instance.new("ScreenGui")
+local frame = Instance.new("Frame")
+local label = Instance.new("TextLabel")
+
+notify.Name = "LoadNotify"
+notify.Parent = CoreGui
+
+frame.Parent = notify
+frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+frame.BorderSizePixel = 0
+frame.Position = UDim2.new(0.35, 0, 0.45, 0)
+frame.Size = UDim2.new(0, 300, 0, 80)
+
+label.Parent = frame
+label.BackgroundTransparency = 1
+label.Size = UDim2.new(1, 0, 1, 0)
+label.Text = "🌙 NIGHTS DOMINATOR v7.0\nУСПЕШНО ЗАГРУЖЕН!"
+label.TextColor3 = Color3.fromRGB(0, 255, 255)
+label.TextSize = 16
+label.Font = Enum.Font.GothamBold
+
+-- Авто-удаление уведомления
 spawn(function()
     wait(3)
-    AddOurFeaturesToVW()
-    
-    -- Если через 5 секунд VW не найден, создаем свой GUI
-    wait(5)
-    if not game.CoreGui:FindFirstChild("Vape") and not game.CoreGui:FindFirstChild("MegaDominatorGUI") then
-        CreateAlternativeGUI()
+    for i = 1, 10 do
+        frame.BackgroundTransparency = i/10
+        label.TextTransparency = i/10
+        wait(0.1)
     end
+    notify:Destroy()
 end)
 
-print("🔥 MEGA DOMINATOR v6.0 LOADED!")
-print("🎯 Enhanced Bring All - Работает на ВСЕ предметы")
-print("💀 Instant Kill - Мгновенно убивает ВСЕХ врагов") 
-print("🎯 Auto Farm - Авто-сбор + авто-убийство")
-print("🪽 Mega Fly - Плавный полет с ускорением")
+print("🔥 NIGHTS DOMINATOR v7.0 - АКТИВИРОВАН!")
+print("🌀 Bring All Items - Притягивает ВСЕ ресурсы")
+print("💀 Instant Kill - Мгновенно убивает врагов")
+print("🎯 Auto Farm - Полный авто-фарм")
+print("🪽 Fly Mode - Полёт на WASD + Space/Ctrl")
+print("👁️ ESP - Подсветка монстров")
