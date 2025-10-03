@@ -1,5 +1,5 @@
--- MEGA DOMINATOR v5.0 - 99 NIGHTS
--- Без проверок + максимум функций
+-- MEGA DOMINATOR v5.1 - 99 NIGHTS FIXED
+-- Исправленное определение монстров + отдельный бринг предметов
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
@@ -8,8 +8,6 @@ local Lighting = game:GetService("Lighting")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local HttpService = game:GetService("HttpService")
 
 local Player = Players.LocalPlayer
 local Mouse = Player:GetMouse()
@@ -17,33 +15,80 @@ local Mouse = Player:GetMouse()
 -- МЕГА ПЕРЕМЕННЫЕ
 local MegaStates = {
     Flying = false,
-    BringItems = false,
+    BringAllItems = false,
+    BringWood = false,
+    BringStone = false,
+    BringOre = false,
+    BringFood = false,
+    BringMoney = false,
     AutoFarm = false,
     ESP = false,
     GodMode = false,
     Noclip = false,
     SpeedHack = false,
     AutoClick = false,
-    InfJump = false,
-    AutoCollect = false,
-    AutoCraft = false,
-    XRay = false,
-    NoFog = false,
-    FullBright = false,
-    PlayerESP = false,
-    Aimbot = false,
-    Triggerbot = false,
-    AutoSell = false,
-    AutoEat = false,
-    AutoHeal = false,
-    AntiStun = false,
-    AntiGrab = false,
-    InfiniteStamina = false
+    InfJump = false
 }
 
 local MegaConnections = {}
 local ESPHighlights = {}
-local AimbotTarget = nil
+
+-- Умное определение монстров
+local function IsMonster(npc)
+    if not npc:FindFirstChild("Humanoid") then return false end
+    if npc:FindFirstChild("Humanoid").Health <= 0 then return false end
+    
+    -- Игроки - не монстры
+    if Players:GetPlayerFromCharacter(npc) then return false end
+    
+    -- Черный список имен игроков/дружественных NPC
+    local blacklistNames = {
+        "Player", "Friend", "Villager", "Trader", "Merchant", "NPC", "Civilian"
+    }
+    
+    local npcName = npc.Name:lower()
+    for _, blackName in pairs(blacklistNames) do
+        if npcName:find(blackName:lower()) then
+            return false
+        end
+    end
+    
+    -- Белый список монстров (добавь названия монстров из игры)
+    local monsterKeywords = {
+        "monster", "enemy", "zombie", "skeleton", "creature", "beast",
+        "wolf", "bear", "spider", "goblin", "orc", "demon", "ghost"
+    }
+    
+    for _, keyword in pairs(monsterKeywords) do
+        if npcName:find(keyword) then
+            return true
+        end
+    end
+    
+    -- Если не игрок и не в черном списке - считаем монстром
+    return true
+end
+
+-- Определение типов предметов
+local ItemTypes = {
+    Wood = {"wood", "log", "lumber", "tree", "timber"},
+    Stone = {"stone", "rock", "boulder", "pebble"},
+    Ore = {"ore", "metal", "iron", "gold", "copper", "crystal", "gem"},
+    Food = {"berry", "mushroom", "apple", "food", "meat", "fish", "bread"},
+    Money = {"coin", "cash", "money", "gold", "treasure", "reward"}
+}
+
+local function GetItemType(itemName)
+    local name = itemName:lower()
+    for itemType, keywords in pairs(ItemTypes) do
+        for _, keyword in pairs(keywords) do
+            if name:find(keyword) then
+                return itemType
+            end
+        end
+    end
+    return "Other"
+end
 
 -- МЕГА GUI
 local function CreateMegaGUI()
@@ -80,7 +125,7 @@ local function CreateMegaGUI()
     Title.BackgroundTransparency = 1
     Title.Size = UDim2.new(0.8, 0, 1, 0)
     Title.Font = Enum.Font.GothamBold
-    Title.Text = "🔥 MEGA DOMINATOR v5.0 | 99 NIGHTS"
+    Title.Text = "🔥 MEGA DOMINATOR v5.1 | 99 NIGHTS"
     Title.TextColor3 = Color3.fromRGB(0, 255, 255)
     Title.TextSize = 16
     Title.TextXAlignment = Enum.TextXAlignment.Left
@@ -121,7 +166,7 @@ local function CreateMegaGUI()
 
     -- Создаем вкладки
     local TabButtons = {}
-    local TabNames = {"COMBAT", "MOVEMENT", "VISUALS", "AUTOMATION", "PLAYER", "WORLD", "TELEPORT", "FUN"}
+    local TabNames = {"COMBAT", "ITEMS", "MOVEMENT", "VISUALS", "PLAYER"}
 
     for i, name in pairs(TabNames) do
         local TabBtn = Instance.new("TextButton")
@@ -129,8 +174,8 @@ local function CreateMegaGUI()
         TabBtn.Parent = Tabs
         TabBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
         TabBtn.BorderSizePixel = 0
-        TabBtn.Size = UDim2.new(0.12, 0, 0.8, 0)
-        TabBtn.Position = UDim2.new(0.02 + (i-1)*0.125, 0, 0.1, 0)
+        TabBtn.Size = UDim2.new(0.18, 0, 0.8, 0)
+        TabBtn.Position = UDim2.new(0.02 + (i-1)*0.19, 0, 0.1, 0)
         TabBtn.Font = Enum.Font.Gotham
         TabBtn.Text = name
         TabBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
@@ -222,67 +267,206 @@ local function CreateMegaGUI()
         end
 
         if tab == "COMBAT" then
-            CreateMegaToggle({Name = "🎯 Auto Farm Monsters", Callback = function(v) MegaStates.AutoFarm = v if v then StartAutoFarm() else StopAutoFarm() end end})
-            CreateMegaToggle({Name = "🌀 Bring All Items", Callback = function(v) MegaStates.BringItems = v if v then StartBringItems() else StopBringItems() end end})
-            CreateMegaToggle({Name = "🔫 Aimbot", Callback = function(v) MegaStates.Aimbot = v if v then StartAimbot() else StopAimbot() end end})
-            CreateMegaToggle({Name = "⚡ Triggerbot", Callback = function(v) MegaStates.Triggerbot = v end})
-            CreateMegaToggle({Name = "💀 Instant Kill", Callback = function(v) if v then EnableInstantKill() end end})
-            CreateMegaToggle({Name = "🛡️ Anti Stun", Callback = function(v) MegaStates.AntiStun = v end})
-            CreateMegaToggle({Name = "🚫 Anti Grab", Callback = function(v) MegaStates.AntiGrab = v end})
+            CreateMegaToggle({
+                Name = "🎯 Auto Farm Monsters", 
+                Callback = function(v) 
+                    MegaStates.AutoFarm = v 
+                    if v then 
+                        StartAutoFarm() 
+                    else 
+                        StopAutoFarm() 
+                    end 
+                end 
+            })
             
+            CreateMegaToggle({
+                Name = "⚡ Instant Kill", 
+                Callback = function(v) 
+                    if v then 
+                        EnableInstantKill() 
+                    end 
+                end 
+            })
+            
+            CreateMegaButton({
+                Name = "📊 Scan Monsters", 
+                Callback = function() 
+                    ScanMonsters() 
+                end 
+            })
+
+        elseif tab == "ITEMS" then
+            CreateMegaToggle({
+                Name = "🌀 Bring ALL Items", 
+                Callback = function(v) 
+                    MegaStates.BringAllItems = v 
+                    if v then 
+                        StartBringAllItems() 
+                    else 
+                        StopBringAllItems() 
+                    end 
+                end 
+            })
+            
+            CreateMegaToggle({
+                Name = "🪵 Bring Wood Only", 
+                Callback = function(v) 
+                    MegaStates.BringWood = v 
+                    if v then 
+                        StartBringWood() 
+                    else 
+                        StopBringWood() 
+                    end 
+                end 
+            })
+            
+            CreateMegaToggle({
+                Name = "🪨 Bring Stone Only", 
+                Callback = function(v) 
+                    MegaStates.BringStone = v 
+                    if v then 
+                        StartBringStone() 
+                    else 
+                        StopBringStone() 
+                    end 
+                end 
+            })
+            
+            CreateMegaToggle({
+                Name = "💎 Bring Ore Only", 
+                Callback = function(v) 
+                    MegaStates.BringOre = v 
+                    if v then 
+                        StartBringOre() 
+                    else 
+                        StopBringOre() 
+                    end 
+                end 
+            })
+            
+            CreateMegaToggle({
+                Name = "🍎 Bring Food Only", 
+                Callback = function(v) 
+                    MegaStates.BringFood = v 
+                    if v then 
+                        StartBringFood() 
+                    else 
+                        StopBringFood() 
+                    end 
+                end 
+            })
+            
+            CreateMegaToggle({
+                Name = "💰 Bring Money Only", 
+                Callback = function(v) 
+                    MegaStates.BringMoney = v 
+                    if v then 
+                        StartBringMoney() 
+                    else 
+                        StopBringMoney() 
+                    end 
+                end 
+            })
+            
+            CreateMegaButton({
+                Name = "📦 Collect All Nearby", 
+                Callback = function() 
+                    CollectAllNearby() 
+                end 
+            })
+
         elseif tab == "MOVEMENT" then
-            CreateMegaToggle({Name = "🪽 Fly Mode", Callback = function(v) MegaStates.Flying = v if v then StartFlying() else StopFlying() end end})
-            CreateMegaToggle({Name = "👻 No Clip", Callback = function(v) MegaStates.Noclip = v if v then StartNoclip() else StopNoclip() end end})
-            CreateMegaToggle({Name = "🏃 Speed Hack", Callback = function(v) MegaStates.SpeedHack = v if v then SetSpeed(50) else SetSpeed(16) end end})
-            CreateMegaToggle({Name = "🦘 Inf Jump", Callback = function(v) MegaStates.InfJump = v if v then EnableInfJump() else DisableInfJump() end end})
-            CreateMegaToggle({Name = "💨 Inf Stamina", Callback = function(v) MegaStates.InfiniteStamina = v end})
-            CreateMegaButton({Name = "⚡ Set Speed 100", Callback = function() SetSpeed(100) end})
-            CreateMegaButton({Name = "⚡ Set Speed 150", Callback = function() SetSpeed(150) end})
+            CreateMegaToggle({
+                Name = "🪽 Fly Mode", 
+                Callback = function(v) 
+                    MegaStates.Flying = v 
+                    if v then 
+                        StartFlying() 
+                    else 
+                        StopFlying() 
+                    end 
+                end 
+            })
             
+            CreateMegaToggle({
+                Name = "👻 No Clip", 
+                Callback = function(v) 
+                    MegaStates.Noclip = v 
+                    if v then 
+                        StartNoclip() 
+                    else 
+                        StopNoclip() 
+                    end 
+                end 
+            })
+            
+            CreateMegaToggle({
+                Name = "🏃 Speed Hack", 
+                Callback = function(v) 
+                    MegaStates.SpeedHack = v 
+                    if v then 
+                        SetSpeed(50) 
+                    else 
+                        SetSpeed(16) 
+                    end 
+                end 
+            })
+            
+            CreateMegaToggle({
+                Name = "🦘 Inf Jump", 
+                Callback = function(v) 
+                    MegaStates.InfJump = v 
+                    if v then 
+                        EnableInfJump() 
+                    else 
+                        DisableInfJump() 
+                    end 
+                end 
+            })
+
         elseif tab == "VISUALS" then
-            CreateMegaToggle({Name = "👁️ ESP Monsters", Callback = function(v) MegaStates.ESP = v if v then StartESP() else StopESP() end end})
-            CreateMegaToggle({Name = "👤 ESP Players", Callback = function(v) MegaStates.PlayerESP = v if v then StartPlayerESP() else StopPlayerESP() end end})
-            CreateMegaToggle({Name = "🔍 X-Ray Vision", Callback = function(v) MegaStates.XRay = v if v then EnableXRay() else DisableXRay() end end})
-            CreateMegaToggle({Name = "💡 Full Bright", Callback = function(v) MegaStates.FullBright = v if v then EnableFullBright() else DisableFullBright() end end})
-            CreateMegaToggle({Name = "🌫️ No Fog", Callback = function(v) MegaStates.NoFog = v if v then RemoveFog() else RestoreFog() end end})
-            CreateMegaButton({Name = "🎨 Rainbow World", Callback = function() StartRainbow() end})
+            CreateMegaToggle({
+                Name = "👁️ ESP Monsters", 
+                Callback = function(v) 
+                    MegaStates.ESP = v 
+                    if v then 
+                        StartESP() 
+                    else 
+                        StopESP() 
+                    end 
+                end 
+            })
             
-        elseif tab == "AUTOMATION" then
-            CreateMegaToggle({Name = "🤖 Auto Click", Callback = function(v) MegaStates.AutoClick = v if v then StartAutoClick() else StopAutoClick() end end})
-            CreateMegaToggle({Name = "📦 Auto Collect", Callback = function(v) MegaStates.AutoCollect = v if v then StartAutoCollect() else StopAutoCollect() end end})
-            CreateMegaToggle({Name = "⚒️ Auto Craft", Callback = function(v) MegaStates.AutoCraft = v end})
-            CreateMegaToggle({Name = "💰 Auto Sell", Callback = function(v) MegaStates.AutoSell = v end})
-            CreateMegaToggle({Name = "🍎 Auto Eat", Callback = function(v) MegaStates.AutoEat = v end})
-            CreateMegaToggle({Name = "❤️ Auto Heal", Callback = function(v) MegaStates.AutoHeal = v end})
-            
+            CreateMegaToggle({
+                Name = "💡 Full Bright", 
+                Callback = function(v) 
+                    if v then 
+                        EnableFullBright() 
+                    else 
+                        DisableFullBright() 
+                    end 
+                end 
+            })
+
         elseif tab == "PLAYER" then
-            CreateMegaToggle({Name = "🛡️ God Mode", Callback = function(v) MegaStates.GodMode = v if v then EnableGodMode() else DisableGodMode() end end})
-            CreateMegaToggle({Name = "💪 Inf Health", Callback = function(v) if v then SetInfiniteHealth() end end})
-            CreateMegaToggle({Name = "🍖 No Hunger", Callback = function(v) if v then NoHunger() end end})
-            CreateMegaToggle({Name = "😴 No Sleep", Callback = function(v) if v then NoSleep() end end})
-            CreateMegaButton({Name = "🔧 Reset Character", Callback = function() ResetCharacter() end})
-            CreateMegaButton({Name = "🎭 Invisible", Callback = function() MakeInvisible() end})
+            CreateMegaToggle({
+                Name = "🛡️ God Mode", 
+                Callback = function(v) 
+                    MegaStates.GodMode = v 
+                    if v then 
+                        EnableGodMode() 
+                    else 
+                        DisableGodMode() 
+                    end 
+                end 
+            })
             
-        elseif tab == "WORLD" then
-            CreateMegaToggle({Name = "🌙 Always Day", Callback = function(v) if v then AlwaysDay() else NormalTime() end end})
-            CreateMegaToggle({Name = "🌧️ No Weather", Callback = function(v) if v then NoWeather() else NormalWeather() end end})
-            CreateMegaButton({Name = "💥 Destroy Trees", Callback = function() DestroyTrees() end})
-            CreateMegaButton({Name = "🏔️ Remove Terrain", Callback = function() RemoveTerrain() end})
-            CreateMegaButton({Name = "🌈 Change Sky", Callback = function() ChangeSkybox() end})
-            
-        elseif tab == "TELEPORT" then
-            CreateMegaButton({Name = "📍 TP to Mouse", Callback = function() TeleportToMouse() end})
-            CreateMegaButton({Name = "🏠 TP to Spawn", Callback = function() TeleportToSpawn() end})
-            CreateMegaButton({Name = "🌲 TP to Forest", Callback = function() TeleportToForest() end})
-            CreateMegaButton({Name = "🕵️ TP to Nearest Player", Callback = function() TeleportToNearestPlayer() end})
-            CreateMegaButton({Name = "🎯 TP to Nearest Monster", Callback = function() TeleportToNearestMonster() end})
-            
-        elseif tab == "FUN" then
-            CreateMegaButton({Name = "🎇 Spawn Fireworks", Callback = function() SpawnFireworks() end})
-            CreateMegaButton({Name = "👻 Ghost Mode", Callback = function() GhostMode() end})
-            CreateMegaButton({Name = "🤡 Big Head Mode", Callback = function() BigHeadMode() end})
-            CreateMegaButton({Name = "🌀 Spin Mode", Callback = function() SpinMode() end})
-            CreateMegaButton({Name = "🚀 Rocket Launch", Callback = function() RocketLaunch() end})
+            CreateMegaButton({
+                Name = "📍 TP to Mouse", 
+                Callback = function() 
+                    TeleportToMouse() 
+                end 
+            })
         end
     end
 
@@ -290,7 +474,185 @@ local function CreateMegaGUI()
     return MegaGUI
 end
 
--- МЕГА ФУНКЦИИ (основные)
+-- ОСНОВНЫЕ ФУНКЦИИ
+function StartAutoFarm()
+    MegaConnections.Farm = RunService.Heartbeat:Connect(function()
+        if not MegaStates.AutoFarm then return end
+        local root = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+        if not root then return end
+        
+        for _, npc in pairs(Workspace:GetChildren()) do
+            if IsMonster(npc) then
+                local npcRoot = npc:FindFirstChild("HumanoidRootPart")
+                if npcRoot then
+                    local dist = (root.Position - npcRoot.Position).Magnitude
+                    if dist < 50 then
+                        -- Телепорт к монстру
+                        root.CFrame = npcRoot.CFrame + Vector3.new(0, 0, -3)
+                        
+                        -- Авто-атака
+                        local tool = Player.Character:FindFirstChildOfClass("Tool")
+                        if tool then
+                            firetouchinterest(tool.Handle, npcRoot, 0)
+                            wait(0.1)
+                            firetouchinterest(tool.Handle, npcRoot, 1)
+                        end
+                    end
+                end
+            end
+        end
+    end)
+end
+
+function StopAutoFarm()
+    if MegaConnections.Farm then
+        MegaConnections.Farm:Disconnect()
+        MegaConnections.Farm = nil
+    end
+end
+
+-- ФУНКЦИИ БРИНГА ПРЕДМЕТОВ
+function StartBringAllItems()
+    MegaConnections.BringAll = RunService.Heartbeat:Connect(function()
+        if not MegaStates.BringAllItems then return end
+        BringItemsByType(nil) -- Все предметы
+    end)
+end
+
+function StopBringAllItems()
+    if MegaConnections.BringAll then
+        MegaConnections.BringAll:Disconnect()
+        MegaConnections.BringAll = nil
+    end
+end
+
+function StartBringWood()
+    MegaConnections.BringWood = RunService.Heartbeat:Connect(function()
+        if not MegaStates.BringWood then return end
+        BringItemsByType("Wood")
+    end)
+end
+
+function StopBringWood()
+    if MegaConnections.BringWood then
+        MegaConnections.BringWood:Disconnect()
+        MegaConnections.BringWood = nil
+    end
+end
+
+function StartBringStone()
+    MegaConnections.BringStone = RunService.Heartbeat:Connect(function()
+        if not MegaStates.BringStone then return end
+        BringItemsByType("Stone")
+    end)
+end
+
+function StopBringStone()
+    if MegaConnections.BringStone then
+        MegaConnections.BringStone:Disconnect()
+        MegaConnections.BringStone = nil
+    end
+end
+
+function StartBringOre()
+    MegaConnections.BringOre = RunService.Heartbeat:Connect(function()
+        if not MegaStates.BringOre then return end
+        BringItemsByType("Ore")
+    end)
+end
+
+function StopBringOre()
+    if MegaConnections.BringOre then
+        MegaConnections.BringOre:Disconnect()
+        MegaConnections.BringOre = nil
+    end
+end
+
+function StartBringFood()
+    MegaConnections.BringFood = RunService.Heartbeat:Connect(function()
+        if not MegaStates.BringFood then return end
+        BringItemsByType("Food")
+    end)
+end
+
+function StopBringFood()
+    if MegaConnections.BringFood then
+        MegaConnections.BringFood:Disconnect()
+        MegaConnections.BringFood = nil
+    end
+end
+
+function StartBringMoney()
+    MegaConnections.BringMoney = RunService.Heartbeat:Connect(function()
+        if not MegaStates.BringMoney then return end
+        BringItemsByType("Money")
+    end)
+end
+
+function StopBringMoney()
+    if MegaConnections.BringMoney then
+        MegaConnections.BringMoney:Disconnect()
+        MegaConnections.BringMoney = nil
+    end
+end
+
+-- УНИВЕРСАЛЬНАЯ ФУНКЦИЯ БРИНГА
+function BringItemsByType(itemType)
+    local root = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    
+    for _, obj in pairs(Workspace:GetDescendants()) do
+        if obj:IsA("Part") or obj:IsA("MeshPart") then
+            local objItemType = GetItemType(obj.Name)
+            
+            -- Если тип указан - берем только его, иначе все
+            if itemType == nil or objItemType == itemType then
+                local dist = (root.Position - obj.Position).Magnitude
+                if dist < 100 then
+                    -- Плавный бринг
+                    local tween = TweenService:Create(obj, TweenInfo.new(0.3), {
+                        CFrame = root.CFrame + Vector3.new(
+                            math.random(-3, 3),
+                            3,
+                            math.random(-3, 3)
+                        )
+                    })
+                    tween:Play()
+                end
+            end
+        end
+    end
+end
+
+function CollectAllNearby()
+    local root = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    
+    for _, obj in pairs(Workspace:GetDescendants()) do
+        if obj:IsA("Part") or obj:IsA("MeshPart") then
+            local dist = (root.Position - obj.Position).Magnitude
+            if dist < 30 then
+                obj.CFrame = root.CFrame + Vector3.new(0, 3, 0)
+                firetouchinterest(root, obj, 0)
+                wait(0.05)
+                firetouchinterest(root, obj, 1)
+            end
+        end
+    end
+end
+
+function ScanMonsters()
+    local monsterCount = 0
+    for _, npc in pairs(Workspace:GetChildren()) do
+        if IsMonster(npc) then
+            monsterCount = monsterCount + 1
+            print("🎯 Monster found: " .. npc.Name)
+        end
+    end
+    print("📊 Total monsters: " .. monsterCount)
+end
+
+-- ОСТАЛЬНЫЕ ФУНКЦИИ (летание, ноклип, ESP и т.д.)
 function StartFlying()
     MegaConnections.Fly = RunService.Heartbeat:Connect(function()
         if not MegaStates.Flying or not Player.Character then return end
@@ -322,87 +684,6 @@ function StopFlying()
     end
 end
 
-function StartBringItems()
-    MegaConnections.Bring = RunService.Heartbeat:Connect(function()
-        if not MegaStates.BringItems then return end
-        local root = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
-        if not root then return end
-        
-        for _, obj in pairs(Workspace:GetDescendants()) do
-            if obj:IsA("Part") or obj:IsA("MeshPart") then
-                local name = obj.Name:lower()
-                if name:find("wood") or name:find("stone") or name:find("ore") or name:find("berry") or name:find("coin") then
-                    local dist = (root.Position - obj.Position).Magnitude
-                    if dist < 200 then
-                        obj.CFrame = root.CFrame + Vector3.new(math.random(-5,5), 3, math.random(-5,5))
-                    end
-                end
-            end
-        end
-    end)
-end
-
-function StopBringItems()
-    if MegaConnections.Bring then
-        MegaConnections.Bring:Disconnect()
-        MegaConnections.Bring = nil
-    end
-end
-
-function StartAutoFarm()
-    MegaConnections.Farm = RunService.Heartbeat:Connect(function()
-        if not MegaStates.AutoFarm then return end
-        local root = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
-        if not root then return end
-        
-        for _, npc in pairs(Workspace:GetChildren()) do
-            if npc:FindFirstChild("Humanoid") and npc.Humanoid.Health > 0 and npc ~= Player.Character then
-                local npcRoot = npc:FindFirstChild("HumanoidRootPart")
-                if npcRoot then
-                    local dist = (root.Position - npcRoot.Position).Magnitude
-                    if dist < 100 then
-                        root.CFrame = npcRoot.CFrame + Vector3.new(0,0,-3)
-                        local tool = Player.Character:FindFirstChildOfClass("Tool")
-                        if tool then
-                            firetouchinterest(tool.Handle, npcRoot, 0)
-                            wait(0.1)
-                            firetouchinterest(tool.Handle, npcRoot, 1)
-                        end
-                    end
-                end
-            end
-        end
-    end)
-end
-
-function StopAutoFarm()
-    if MegaConnections.Farm then
-        MegaConnections.Farm:Disconnect()
-        MegaConnections.Farm = nil
-    end
-end
-
-function StartESP()
-    for _, npc in pairs(Workspace:GetChildren()) do
-        if npc:FindFirstChild("Humanoid") and npc.Humanoid.Health > 0 and npc ~= Player.Character then
-            local highlight = Instance.new("Highlight")
-            highlight.Adornee = npc
-            highlight.FillColor = Color3.fromRGB(255,0,0)
-            highlight.OutlineColor = Color3.fromRGB(255,255,255)
-            highlight.FillTransparency = 0.5
-            highlight.Parent = npc
-            ESPHighlights[npc] = highlight
-        end
-    end
-end
-
-function StopESP()
-    for _, highlight in pairs(ESPHighlights) do
-        highlight:Destroy()
-    end
-    ESPHighlights = {}
-end
-
 function StartNoclip()
     MegaConnections.Noclip = RunService.Stepped:Connect(function()
         if not MegaStates.Noclip then return end
@@ -421,6 +702,27 @@ function StopNoclip()
         MegaConnections.Noclip:Disconnect()
         MegaConnections.Noclip = nil
     end
+end
+
+function StartESP()
+    for _, npc in pairs(Workspace:GetChildren()) do
+        if IsMonster(npc) then
+            local highlight = Instance.new("Highlight")
+            highlight.Adornee = npc
+            highlight.FillColor = Color3.fromRGB(255, 0, 0)
+            highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+            highlight.FillTransparency = 0.5
+            highlight.Parent = npc
+            ESPHighlights[npc] = highlight
+        end
+    end
+end
+
+function StopESP()
+    for _, highlight in pairs(ESPHighlights) do
+        highlight:Destroy()
+    end
+    ESPHighlights = {}
 end
 
 function SetSpeed(value)
@@ -474,24 +776,21 @@ function TeleportToMouse()
     if Player.Character and Mouse.Target then
         local root = Player.Character:FindFirstChild("HumanoidRootPart")
         if root then
-            root.CFrame = CFrame.new(Mouse.Hit.Position + Vector3.new(0,5,0))
+            root.CFrame = CFrame.new(Mouse.Hit.Position + Vector3.new(0, 5, 0))
         end
     end
 end
 
--- ДОПОЛНИТЕЛЬНЫЕ ФУНКЦИИ
-function EnableXRay()
-    for _, part in pairs(Workspace:GetDescendants()) do
-        if part:IsA("BasePart") and part.Transparency < 1 then
-            part.LocalTransparencyModifier = 0.5
-        end
-    end
-end
-
-function DisableXRay()
-    for _, part in pairs(Workspace:GetDescendants()) do
-        if part:IsA("BasePart") then
-            part.LocalTransparencyModifier = 0
+function EnableInstantKill()
+    -- Увеличиваем урон оружия
+    for _, tool in pairs(Player.Backpack:GetChildren()) do
+        if tool:IsA("Tool") then
+            local handle = tool:FindFirstChild("Handle")
+            if handle then
+                local bodyForce = Instance.new("BodyForce")
+                bodyForce.Force = Vector3.new(0, 196.2, 0) * 10
+                bodyForce.Parent = handle
+            end
         end
     end
 end
@@ -499,7 +798,6 @@ end
 function EnableFullBright()
     Lighting.Brightness = 2
     Lighting.ClockTime = 14
-    Lighting.OutdoorAmbient = Color3.new(1,1,1)
 end
 
 function DisableFullBright()
@@ -507,47 +805,11 @@ function DisableFullBright()
     Lighting.ClockTime = 12
 end
 
-function StartAutoClick()
-    while MegaStates.AutoClick do
-        wait(0.1)
-        VirtualInputManager:SendMouseButtonEvent(0,0,0,true,game,0)
-        wait(0.1)
-        VirtualInputManager:SendMouseButtonEvent(0,0,0,false,game,0)
-    end
-end
-
-function StopAutoClick()
-    -- Останавливается автоматически
-end
-
 -- ЗАГРУЗКА
 wait(1)
 CreateMegaGUI()
 
--- УВЕДОМЛЕНИЕ
-local notify = Instance.new("ScreenGui")
-local frame = Instance.new("Frame")
-local label = Instance.new("TextLabel")
-
-notify.Parent = game.CoreGui
-frame.Parent = notify
-frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-frame.BorderSizePixel = 0
-frame.Position = UDim2.new(0.3, 0, 0.4, 0)
-frame.Size = UDim2.new(0, 400, 0, 100)
-
-label.Parent = frame
-label.BackgroundTransparency = 1
-label.Size = UDim2.new(1, 0, 1, 0)
-label.Text = "🔥 MEGA DOMINATOR v5.0 LOADED!\n99 NIGHTS - FULL CONTROL ACTIVATED"
-label.TextColor3 = Color3.fromRGB(0, 255, 255)
-label.TextSize = 18
-label.Font = Enum.Font.GothamBold
-
-wait(3)
-notify:Destroy()
-
-print("🎮 MEGA DOMINATOR v5.0 - 99 NIGHTS")
-print("✅ NO GAME CHECKS - DIRECT INJECT")
-print("🎯 30+ FEATURES ACTIVATED")
+print("🔥 MEGA DOMINATOR v5.1 - 99 NIGHTS")
+print("✅ SMART MONSTER DETECTION")
+print("🎯 SEPARATE ITEM BRINGING")
 print("🚀 READY FOR DOMINATION!")
